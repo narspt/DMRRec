@@ -4,7 +4,10 @@
 
     Based on code from:
     reflector_connectors	https://github.com/nostar/reflector_connectors
+      Copyright (C) 2019 Doug McLain
     MMDVM_CM	https://github.com/juribeparada/MMDVM_CM
+      Copyright (C) 2018 by Andy Uribe CA6JAU
+      Copyright (C) 2016,2017 by Jonathan Naylor G4KLX
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,6 +42,7 @@
 
 #define AMBE_ENCODE_GAIN -15
 #define AMBE_DECODE_GAIN 10
+//#define FREEDMR_COMPAT
 #define BUFSIZE 2048
 #define TIMEOUT 60
 //#define DEBUG
@@ -243,11 +247,7 @@ static inline void set_uint32(unsigned char* cp, uint32_t v)
 
 void process_signal(int sig)
 {
-	static uint32_t c1 = 0;
-	static uint32_t c2 = 0;
-	static int cnt = 0;
 	uint8_t b[20];
-	uint8_t out[55];
 	if(sig == SIGINT){
 		fprintf(stderr, "\n\nShutting down link\n");
 		b[0] = 'R';
@@ -271,7 +271,6 @@ void process_signal(int sig)
 		exit(EXIT_SUCCESS);
 	}
 	if(sig == SIGALRM){
-		++cnt;
 		char tag[] = { 'R','P','T','P','I','N','G' };
 		memcpy(b, tag, 7);
 		b[7] = (dmrid >> 24) & 0xff;
@@ -898,6 +897,19 @@ int process_connect(int connect_status, char *buf)
 		fprintf(stderr, "Sending conf to DMR...\n");
 		break;
 	case DMR_CONF:
+#ifdef FREEDMR_COMPAT
+		connect_status = DMR_OPTS;
+		memcpy(out, "RPTO", 4);
+		out[4] = (dmrid >> 24) & 0xff;
+		out[5] = (dmrid >> 16) & 0xff;
+		out[6] = (dmrid >> 8) & 0xff;
+		out[7] = (dmrid >> 0) & 0xff;
+		sprintf(&out[8], "TS2=%u;DIAL=0;VOICE=0;LANG=en_GB;SINGLE=0;TIMER=10;", host1_tg);
+		len = 8 + strlen(&out[8]);
+		fprintf(stderr, "Sending opts to DMR...\n");
+		break;
+	case DMR_OPTS:
+#endif
 		connect_status = CONNECTED_RW;
 		memcpy(buf, "DMRD", 4);
 		buf[4] = 0x00;
